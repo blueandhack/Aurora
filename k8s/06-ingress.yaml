@@ -1,0 +1,129 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aurora-ingress
+  namespace: aurora
+  annotations:
+    kubernetes.io/ingress.class: "traefik"  # k3s default ingress controller
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # If using cert-manager
+    # WebSocket support
+    traefik.ingress.kubernetes.io/router.middlewares: aurora-websocket@kubernetescrd
+spec:
+  tls:
+  - hosts:
+    - your-domain.com  # Replace with your actual domain
+    secretName: aurora-tls-secret
+  rules:
+  - host: your-domain.com  # Replace with your actual domain
+    http:
+      paths:
+      # Frontend routes
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-frontend
+            port:
+              number: 80
+      # API routes
+      - path: /auth
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      # Direct API endpoints
+      - path: /active-calls
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /call-notes
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /all-notes
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /end-call
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /audio-files
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      - path: /download-audio
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      # Webhook endpoint for Twilio
+      - path: /webhook
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+      # WebSocket endpoint
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: aurora-backend
+            port:
+              number: 3000
+---
+# WebSocket middleware for Traefik
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: websocket
+  namespace: aurora
+spec:
+  headers:
+    customRequestHeaders:
+      Connection: "Upgrade"
+      Upgrade: "websocket"

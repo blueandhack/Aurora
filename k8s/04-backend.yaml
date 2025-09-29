@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aurora-backend
+  namespace: aurora
+  labels:
+    app: aurora-backend
+spec:
+  replicas: 1  # Single replica for now due to in-memory state (activeCalls, audioStreams)
+  selector:
+    matchLabels:
+      app: aurora-backend
+  template:
+    metadata:
+      labels:
+        app: aurora-backend
+    spec:
+      containers:
+      - name: aurora-backend
+        image: ghcr.io/blueandhack/aurora/aurora-backend:latest  # GitHub Container Registry
+        ports:
+        - containerPort: 3000
+          name: http
+        - containerPort: 8080
+          name: websocket
+        env:
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: aurora-config
+              key: PORT
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: aurora-config
+              key: NODE_ENV
+        - name: MONGODB_URI
+          valueFrom:
+            configMapKeyRef:
+              name: aurora-config
+              key: MONGODB_URI
+        - name: JWT_EXPIRES_IN
+          valueFrom:
+            configMapKeyRef:
+              name: aurora-config
+              key: JWT_EXPIRES_IN
+        - name: WEBHOOK_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: aurora-config
+              key: WEBHOOK_BASE_URL
+        - name: TWILIO_ACCOUNT_SID
+          valueFrom:
+            secretKeyRef:
+              name: aurora-secrets
+              key: TWILIO_ACCOUNT_SID
+        - name: TWILIO_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: aurora-secrets
+              key: TWILIO_AUTH_TOKEN
+        - name: TWILIO_PHONE_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: aurora-secrets
+              key: TWILIO_PHONE_NUMBER
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aurora-secrets
+              key: OPENAI_API_KEY
+        - name: USER_PHONE_NUMBER
+          valueFrom:
+            secretKeyRef:
+              name: aurora-secrets
+              key: USER_PHONE_NUMBER
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: aurora-secrets
+              key: JWT_SECRET
+        volumeMounts:
+        - name: audio-storage
+          mountPath: /app/storage/audio
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          timeoutSeconds: 3
+          periodSeconds: 5
+      volumes:
+      - name: audio-storage
+        persistentVolumeClaim:
+          claimName: aurora-audio-pvc
+      initContainers:
+      - name: wait-for-mongo
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z aurora-mongo 27017; do echo waiting for mongo; sleep 2; done;']
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aurora-backend
+  namespace: aurora
+  labels:
+    app: aurora-backend
+spec:
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: websocket
+  selector:
+    app: aurora-backend
+  type: ClusterIP

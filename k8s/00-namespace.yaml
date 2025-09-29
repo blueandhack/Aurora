@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aurora
+  labels:
+    name: aurora
+    app: aurora-ivr-assistant

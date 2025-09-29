@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aurora-audio-pvc
+  namespace: aurora
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi  # Adjust based on expected audio storage needs
+  storageClassName: local-path  # k3s default storage class

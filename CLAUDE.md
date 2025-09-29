@@ -3,7 +3,7 @@
 ## Project Overview
 Complete full-stack personal IVR and AI assistant application with React frontend and Node.js backend. Features iOS native call merging, real-time audio streaming, AI-powered transcription and note-taking, plus secure user authentication and a modern web dashboard.
 
-**Version**: 2.1.1
+**Version**: 2.2.0
 **Status**: Production Ready ✅
 **Architecture Support**: x86_64, ARM64, ARM (Raspberry Pi)
 **Frontend**: React with modern UI and dashboard
@@ -58,13 +58,25 @@ MONGODB_URI=mongodb://localhost:27017/aurora
 - **HTTP Method**: POST
 - Handles all events: incoming calls, call status, recording completion, conference events
 
-## Development Commands
+## Development & Deployment Commands
 
-### Docker (Recommended)
+### Docker Compose (Development)
 - `./docker-start.sh` - One-command startup with validation
 - `docker-compose up -d --build` - Build and start services
 - `docker-compose logs -f` - View logs
 - `docker-compose down` - Stop services
+
+### Kubernetes/K3s (Production)
+- `cd k8s/ && ./deploy.sh apply` - Deploy to K3s cluster
+- `./deploy.sh status` - Check deployment status
+- `./deploy.sh logs` - View application logs
+- `./deploy.sh delete` - Remove deployment (keeps data)
+
+### GitHub Actions CI/CD
+- Push to main → Automatic image builds
+- Create PR → Quality checks and test builds
+- Tag release → Versioned image builds
+- Manual trigger: `gh workflow run build-images.yml`
 
 ### Local Development
 - `npm start` - Start production server
@@ -304,9 +316,96 @@ Complete RBAC system implemented with admin and user roles:
 }
 ```
 
+## CI/CD & Deployment Architecture
+
+### GitHub Actions Workflows
+Aurora includes a comprehensive CI/CD pipeline with 4 specialized workflows:
+
+#### 1. `build-images.yml` - Smart Combined Builds
+- **Trigger**: Push to main, version tags, manual dispatch
+- **Function**: Detects changes and builds only modified components
+- **Output**: Multi-architecture images to GitHub Container Registry
+- **Features**: Build summaries with deployment instructions
+
+#### 2. `build-backend.yml` & `build-frontend.yml` - Component Builds
+- **Trigger**: Component-specific changes, PRs, manual dispatch
+- **Function**: Individual component builds for targeted development
+- **Platforms**: linux/amd64, linux/arm64, linux/arm/v7
+- **Security**: Automatic vulnerability scanning with Trivy
+
+#### 3. `security-and-quality.yml` - Continuous Monitoring
+- **Trigger**: All pushes, PRs, weekly schedule
+- **Function**: Code quality, security scanning, dependency checks
+- **Tools**: ESLint, Trivy, TruffleHog, Hadolint, Kubeval
+
+### Container Registry Strategy
+```yaml
+# Images published to GitHub Container Registry
+ghcr.io/username/aurora/aurora-backend:latest
+ghcr.io/username/aurora/aurora-frontend:latest
+
+# Automatic tagging:
+- latest (main branch)
+- v1.2.3 (semantic versions)
+- main-abc123 (commit SHA)
+- pr-123 (pull requests)
+```
+
+### Kubernetes Deployment Architecture
+Complete production-ready K8s manifests for k3s clusters:
+
+#### Core Components
+- **Namespace**: Isolated Aurora environment
+- **ConfigMap**: Non-sensitive configuration
+- **Secrets**: Encrypted sensitive data (API keys, tokens)
+- **MongoDB**: Persistent database with 10Gi storage
+- **Audio Storage**: 20Gi persistent volume for call recordings
+
+#### Application Services
+- **Backend**: Single replica (maintains in-memory state)
+  - Health checks and resource limits
+  - Persistent audio storage mounting
+  - Environment variable injection
+- **Frontend**: 2-5 auto-scaling replicas
+  - Nginx serving optimized React build
+  - Horizontal Pod Autoscaler based on CPU/memory
+
+#### Networking & SSL
+- **Ingress**: Traefik-based with automatic HTTPS
+- **WebSocket Support**: Real-time audio streaming
+- **Domain Integration**: Placeholder-based for easy customization
+- **SSL/TLS**: Let's Encrypt integration with cert-manager
+
+### Deployment Workflow
+```bash
+# 1. Code Push → CI Pipeline
+git push origin main
+
+# 2. Automatic Image Build
+# - Multi-arch builds (x86_64, ARM64, ARM)
+# - Security scanning
+# - Registry publishing
+
+# 3. Manual K8s Deployment
+cd k8s/
+./deploy.sh apply
+
+# 4. Production Monitoring
+./deploy.sh status
+kubectl get pods -n aurora
+```
+
 ## Recent Bug Fixes & Improvements
 
-### v2.1.1 (Latest) - Critical Call Status Fix
+### v2.2.0 (Latest) - CI/CD & Kubernetes Support
+- **🏗️ Complete GitHub Actions CI/CD Pipeline**: Automated multi-architecture Docker image builds
+- **☸️ Production K8s/K3s Deployment**: Complete Kubernetes manifests with auto-scaling and persistence
+- **🐳 Multi-Architecture Support**: x86_64, ARM64, and ARM (Raspberry Pi) container images
+- **🔒 Security & Quality Automation**: Vulnerability scanning, dependency checks, and code quality
+- **📦 Container Registry Integration**: Automatic publishing to GitHub Container Registry
+- **🚀 Smart Build Detection**: Only builds components that have changed
+
+### v2.1.1 - Critical Call Status Fix
 - **🐛 Fixed Critical Call Status Database Update Issue**: Resolved calls not properly ending in database
 - **🔧 Enhanced WebSocket Audio Stream Handling**: Added proper database updates to audio stream stop events
 - **📊 Improved Debugging**: Added comprehensive logging for call lifecycle tracking

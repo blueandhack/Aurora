@@ -197,15 +197,19 @@ ngrok http 3000
 - **Orchestration**: Docker Compose for multi-service deployment
 - **Platforms**: x86_64, ARM64, ARM (Raspberry Pi compatible)
 
-## 🐳 Docker Commands
+## 🚀 Deployment Options
 
+Aurora supports multiple deployment methods:
+
+### 🐳 Docker Compose (Development)
+Perfect for local development and testing:
 ```bash
 # Start services
 ./docker-start.sh                    # One-command startup with validation
 docker-compose up -d --build         # Manual startup
 
 # View logs
-docker-compose logs -f               # Follow all logs  
+docker-compose logs -f               # Follow all logs
 docker-compose logs -f aurora-backend    # Follow backend logs
 docker-compose logs -f aurora-frontend   # Follow frontend logs
 
@@ -217,6 +221,36 @@ docker-compose down -v               # Stop and remove containers + volumes
 
 # Database
 docker-compose exec mongo mongosh    # Access MongoDB shell
+```
+
+### ☸️ Kubernetes/K3s (Production)
+Production-ready deployment with auto-scaling and persistence:
+```bash
+# Deploy to K3s cluster
+cd k8s/
+./deploy.sh apply
+
+# Check deployment status
+./deploy.sh status
+
+# View application logs
+./deploy.sh logs
+
+# Remove deployment (keeps data)
+./deploy.sh delete
+```
+
+### 🏗️ CI/CD with GitHub Actions
+Automated image building and publishing:
+- **Multi-architecture builds** (x86_64, ARM64, ARM)
+- **Automatic security scanning**
+- **GitHub Container Registry** integration
+- **Smart change detection** (builds only what changed)
+
+Images automatically published to:
+```
+ghcr.io/your-username/aurora/aurora-backend:latest
+ghcr.io/your-username/aurora/aurora-frontend:latest
 ```
 
 ## 📁 File Structure
@@ -255,6 +289,24 @@ docker-compose exec mongo mongosh    # Access MongoDB shell
 │       ├── hooks/        # Custom React hooks
 │       ├── services/     # API service classes
 │       └── utils/        # Utility functions
+├── k8s/                   # Kubernetes deployment manifests
+│   ├── 00-namespace.yaml # Aurora namespace
+│   ├── 01-configmap.yaml # Configuration and secrets
+│   ├── 02-mongodb.yaml   # MongoDB deployment with persistence
+│   ├── 03-audio-storage.yaml # Audio files persistent volume
+│   ├── 04-backend.yaml   # Aurora backend deployment
+│   ├── 05-frontend.yaml  # Aurora frontend deployment
+│   ├── 06-ingress.yaml   # Ingress with SSL and WebSocket support
+│   ├── 07-hpa.yaml       # Horizontal Pod Autoscaler
+│   ├── deploy.sh         # Automated deployment script
+│   └── README.md         # K8s deployment documentation
+├── .github/               # GitHub Actions workflows
+│   └── workflows/        # CI/CD automation
+│       ├── build-backend.yml     # Backend image builds
+│       ├── build-frontend.yml    # Frontend image builds
+│       ├── build-images.yml      # Combined smart builds
+│       ├── security-and-quality.yml # Security & quality checks
+│       └── README.md             # Workflows documentation
 ├── .env.example          # Environment template
 ├── .gitignore            # Git ignore rules
 ├── README.md             # This file - setup instructions
@@ -433,7 +485,14 @@ docker-compose up -d --build
 
 ## 🆕 Recent Improvements
 
-### v2.1.1 (Latest) - Critical Fixes ⚡
+### v2.2.0 (Latest) - CI/CD & K8s Support 🚀
+- **🏗️ GitHub Actions CI/CD**: Complete automated Docker image building with multi-architecture support
+- **☸️ Kubernetes Deployment**: Production-ready K3s manifests with persistent storage and auto-scaling
+- **🐳 Multi-Architecture Images**: Support for x86_64, ARM64, and ARM (Raspberry Pi)
+- **🔒 Security Scanning**: Automated vulnerability scanning and dependency checks
+- **📦 GitHub Container Registry**: Automatic image publishing to ghcr.io
+
+### v2.1.1 - Critical Fixes ⚡
 - **🐛 FIXED: Call Status Database Updates**: Resolved critical issue where calls remained "ringing" after completion
 - **🔧 Enhanced WebSocket Handlers**: Added proper database updates to audio stream stop events
 - **📊 Improved Call Lifecycle**: Calls now properly transition: ringing → in-progress → completed
@@ -481,6 +540,6 @@ For issues, feature requests, or contributions, please check the project reposit
 
 ---
 
-**Version**: 2.1.1
+**Version**: 2.2.0
 **Status**: Production Ready ✅
 **Last Updated**: 2025-09-29

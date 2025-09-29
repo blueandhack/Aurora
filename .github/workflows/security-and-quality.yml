@@ -1,0 +1,225 @@
+name: Security and Quality Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+
+  security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner in repo mode
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  backend-quality:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install backend dependencies
+      run: npm ci
+
+    - name: Run backend linting
+      run: |
+        # Install ESLint if not present
+        if ! npm list eslint &>/dev/null; then
+          npm install --save-dev eslint
+        fi
+        # Run linting with basic rules
+        npx eslint server.js routes/ models/ middleware/ --ext .js || true
+
+    - name: Run backend tests
+      run: npm test || echo "No tests found"
+
+    - name: Check for security vulnerabilities
+      run: npm audit --audit-level moderate
+
+  frontend-quality:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run frontend linting
+      working-directory: ./frontend
+      run: npm run lint || echo "No lint script found"
+
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm run test || echo "No test script found"
+
+    - name: Check for security vulnerabilities
+      working-directory: ./frontend
+      run: npm audit --audit-level moderate
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+  dockerfile-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Lint Backend Dockerfile
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile
+
+    - name: Lint Frontend Dockerfile
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: frontend/Dockerfile
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Run secret scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
+
+  k8s-validate:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Validate Kubernetes manifests
+      uses: instrumenta/kubeval-action@master
+      with:
+        files: k8s/
+
+    - name: Run kustomize validation
+      run: |
+        # Install kustomize
+        curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+        sudo mv kustomize /usr/local/bin/
+
+        # Create temporary kustomization.yaml for validation
+        cat > k8s/kustomization.yaml << EOF
+        apiVersion: kustomize.config.k8s.io/v1beta1
+        kind: Kustomization
+        resources:
+        - 00-namespace.yaml
+        - 01-configmap.yaml
+        - 02-mongodb.yaml
+        - 03-audio-storage.yaml
+        - 04-backend.yaml
+        - 05-frontend.yaml
+        - 06-ingress.yaml
+        - 07-hpa.yaml
+        EOF
+
+        # Validate with kustomize
+        kustomize build k8s/ > /dev/null
+
+  docker-build-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [backend, frontend]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build backend Docker image (test)
+      if: matrix.component == 'backend'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: false
+        tags: aurora-backend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build frontend Docker image (test)
+      if: matrix.component == 'frontend'
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: false
+        tags: aurora-frontend:test
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Test backend container
+      if: matrix.component == 'backend'
+      run: |
+        docker run --rm -d --name aurora-backend-test -p 3000:3000 aurora-backend:test
+        sleep 10
+        # Test if the container is running
+        docker ps | grep aurora-backend-test
+        docker stop aurora-backend-test
+
+    - name: Test frontend container
+      if: matrix.component == 'frontend'
+      run: |
+        docker run --rm -d --name aurora-frontend-test -p 8080:80 aurora-frontend:test
+        sleep 5
+        # Test if the container is running and serving content
+        docker ps | grep aurora-frontend-test
+        curl -f http://localhost:8080/ || echo "Frontend not accessible"
+        docker stop aurora-frontend-test

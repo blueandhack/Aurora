@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aurora-config
+  namespace: aurora
+data:
+  PORT: "3000"
+  NODE_ENV: "production"
+  MONGODB_URI: "mongodb://aurora-mongo:27017/aurora"
+  JWT_EXPIRES_IN: "7d"
+  WEBHOOK_BASE_URL: "https://your-domain.com"  # Replace with your actual domain
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aurora-secrets
+  namespace: aurora
+type: Opaque
+data:
+  # Base64 encoded values - replace with your actual secrets
+  # Example: echo -n "your-twilio-account-sid" | base64
+  TWILIO_ACCOUNT_SID: "eW91ci10d2lsaW8tYWNjb3VudC1zaWQ="  # your-twilio-account-sid
+  TWILIO_AUTH_TOKEN: "eW91ci10d2lsaW8tYXV0aC10b2tlbg=="   # your-twilio-auth-token
+  TWILIO_PHONE_NUMBER: "eW91ci10d2lsaW8tcGhvbmUtbnVtYmVy"  # your-twilio-phone-number
+  OPENAI_API_KEY: "eW91ci1vcGVuYWktYXBpLWtleQ=="         # your-openai-api-key
+  USER_PHONE_NUMBER: "eW91ci11c2VyLXBob25lLW51bWJlcg=="   # your-user-phone-number
+  JWT_SECRET: "eW91ci1qd3Qtc2VjcmV0LWtleQ=="             # your-jwt-secret-key
