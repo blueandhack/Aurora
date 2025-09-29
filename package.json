@@ -1,0 +1,35 @@
+{
+  "name": "aurora-ivr-assistant",
+  "version": "1.0.0",
+  "description": "Personal IVR/AI Assistant using Twilio and OpenAI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.18.0",
+    "openai": "^4.20.1",
+    "twilio": "^4.19.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "keywords": [
+    "twilio",
+    "openai",
+    "ivr",
+    "assistant",
+    "conference"
+  ],
+  "author": "Yujia Lin",
+  "license": "GPL-3.0-only"
+}

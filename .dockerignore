@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.git
+.gitignore
+README.md
+CLAUDE.md
+Aurora.png
+.DS_Store
+*.log
+temp_audio_*.wav
